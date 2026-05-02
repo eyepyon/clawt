@@ -1,5 +1,17 @@
-# clawt
+#Claw.tokyo記者Agentワーカーシステム  
+ オールドメディアを駆逐する新時代のオープンメディア  
+
+チーム：ザリ人間コンテスト  
+
+Akindo:  
 https://app.akindo.io/communities/4ej2lZemECkn9Aq7/products/0nZ93BPVEuzkE1xwq
+
+
+資料  
+https://drive.google.com/file/d/1MlcX0j3-QMHwTWeSizHDuTcFzTtoo1xG/view?usp=sharing  
+  
+デモサイト:  
+http://claw.tokyo/  
 
 
 1. エグゼクティブサマリー
