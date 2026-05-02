@@ -8,6 +8,7 @@ Flask-WTF==1.2.2
 Flask-Babel==4.0.0
 openclaw-sdk==0.1.6
 xrpl-py==4.1.0
+x402-xrpl==0.1.0
 PyJWT==2.10.1
 requests==2.32.3
 celery==5.5.2

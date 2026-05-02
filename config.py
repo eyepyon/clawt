@@ -41,6 +41,16 @@ class Config:
     XRPL_FALLBACK_NODE_URL = os.environ.get(
         "XRPL_FALLBACK_NODE_URL", "https://s.devnet.rippletest.net:51234"
     )
+    XRPL_TESTNET_RPC_URL = os.environ.get(
+        "XRPL_TESTNET_RPC_URL", "https://s.altnet.rippletest.net:51234/"
+    )
+
+    # x402 Payment Protocol (XRPL)
+    XRPL_FACILITATOR_URL = os.environ.get(
+        "XRPL_FACILITATOR_URL", "https://xrpl-facilitator-testnet.t54.ai"
+    )
+    XRPL_X402_NETWORK = os.environ.get("XRPL_X402_NETWORK", "xrpl:1")
+    XRPL_X402_SCHEME = os.environ.get("XRPL_X402_SCHEME", "exact")
 
     # OpenClaw
     OPENCLAW_API_KEY = os.environ.get("OPENCLAW_API_KEY", "")

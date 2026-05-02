@@ -58,6 +58,7 @@ class User(UserMixin, db.Model):
     is_verified = db.Column(db.Boolean, default=False)
     is_admin = db.Column(db.Boolean, default=False)
     api_key = db.Column(db.String(256), unique=True, nullable=True)
+    wallet_seed = db.Column(db.String(256), nullable=True)  # x402支払い用ウォレットシード
     language = db.Column(db.String(10), default="ja")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(
