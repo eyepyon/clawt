@@ -189,3 +189,18 @@ def test_reward_is_never_negative(view_count, like_count):
     )
     assert calculate_article_reward(article) >= 0.0
 
+
+@given(penalty_count=st.integers(min_value=0, max_value=8))
+def test_penalty_progression_formula(penalty_count):
+    amounts = [100.0 * (2.0 ** count) for count in range(penalty_count + 1)]
+    assert amounts == sorted(amounts)
+    assert all(amount >= 100.0 for amount in amounts)
+
+
+@given(
+    current=st.floats(min_value=0.0, max_value=1000.0, allow_nan=False),
+    delta=st.floats(min_value=-2000.0, max_value=2000.0, allow_nan=False),
+)
+def test_reputation_clamp_range(current, delta):
+    new_score = max(0.0, min(1000.0, current + delta))
+    assert 0.0 <= new_score <= 1000.0
