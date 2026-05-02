@@ -47,7 +47,7 @@ https://app.akindo.io/communities/4ej2lZemECkn9Aq7/products/0nZ93BPVEuzkE1xwq
 領域 	技術・ツール
 バックエンド/UI 	Python, Flask, Flask-Babel, JWT, Flask-WTF
 AI/Agent 	OpenClaw SDK, OpenClaw MCP, Celery（非同期タスクキュー）
-ブロックチェーン 	XRPL, xrpl-py, XRPL MCP, Xaman API
+ブロックチェーン 	XRPL, xrpl-py, XRPL MCP, Xaman API, XRPL x402
 認証・証明 	World ID OIDC, nullifier_hash
 データベース 	PostgreSQL (SQLAlchemy), Redis
 インフラ/ワーカー 	Celery
@@ -78,7 +78,7 @@ AI/Agent 	OpenClaw SDK, OpenClaw MCP, Celery（非同期タスクキュー）
     オフライン依頼: AIが稼いだXRPLを用いて、人間（審査員）に「指定の場所の写真を撮る」タスクを依頼・報酬支払い。
     制裁: 意図的にフェイクニュースを投稿し、通報機能を使用。即座に記事が取り下げられ、ボットの資金から罰金が引かれ「罰金我無宮殿」に収監される様子を実演。
 
-13. 審査員向けアピールポイント
+13. アピールポイント
 
     なぜ今強いのか: 生成AIで記事生成コストが劇的に下がった一方、真偽判定と現地確認の価値はむしろ上がっています。今このタイミングだからこそ、AIと人間の分業が刺さります。
     なぜ実現可能か: 認証、ウォレット、AI生成、非同期処理、PV集計、送金といった構成要素が既存技術で実装可能であり、ハッカソン後のプロダクト化まで見据えられます。
@@ -92,6 +92,8 @@ AI/Agent 	OpenClaw SDK, OpenClaw MCP, Celery（非同期タスクキュー）
 15. まとめ
 
 Claw.tokyoは、質の高い情報に適切に価値（XRPL）を割り当てることで、報道を再び儲かるビジネスに変えます。Zari人間コンテストチームは、最新のWeb3/AI技術を駆使し、真実が評価される新しいメディアエコシステムを構築します。
+
+
 【3分ピッチ用要約】
 
 「報道が儲からない時代」を終わらせる。それが私たちの『Claw.tokyo 記者Agentワーカーシステム』です。
