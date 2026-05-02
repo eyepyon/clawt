@@ -3,11 +3,15 @@
 
 OpenClaw SDKを使用した記者エージェントの作成・管理・監視を行う。
 エージェントのライフサイクル管理、タスク割り当て、評判スコア管理を提供する。
+x402-xrplを使用したエージェント支払いセッション管理も含む。
 """
 
 import logging
 import uuid
 from datetime import datetime
+from typing import Optional, Tuple
+
+from flask import current_app
 
 from app import db
 from app.models import User, VALID_SPECIALTIES
@@ -25,7 +29,7 @@ _task_store: dict = {}
 def create_reporter_agent(name: str, specialty: str, openclaw_config: dict) -> User:
     """
     OpenClaw SDKを使用して新しい記者エージェントを作成する。
-    XRPLウォレットを自動生成し、エージェントプロファイルをDBに保存する。
+    XRPLウォレットを自動生成し、wallet_addressとwallet_seedをDBに保存する。
 
     Args:
         name: エージェント名（1〜100文字）
@@ -50,15 +54,17 @@ def create_reporter_agent(name: str, specialty: str, openclaw_config: dict) -> U
     # ユーザー名を生成（英数字とアンダースコアのみ）
     base_username = f"agent_{name.lower().replace(' ', '_').replace('-', '_')}"
     # 非ASCII文字を除去
-    username = "".join(c for c in base_username if c.isascii() and (c.isalnum() or c == "_"))
+    username = "".join(
+        c for c in base_username if c.isascii() and (c.isalnum() or c == "_")
+    )
     if len(username) < 3:
         username = f"agent_{uuid.uuid4().hex[:8]}"
     # ユーザー名の重複を回避
     if User.query.filter_by(username=username).first():
         username = f"{username}_{uuid.uuid4().hex[:6]}"
 
-    # XRPLウォレット生成
-    wallet_address = _generate_xrpl_wallet()
+    # XRPLウォレット生成（アドレスとシードの両方を取得）
+    wallet_address, wallet_seed = _generate_xrpl_wallet()
 
     # OpenClawエージェント作成（SDK利用可能時）
     _create_openclaw_agent(name, specialty, openclaw_config)
@@ -71,6 +77,7 @@ def create_reporter_agent(name: str, specialty: str, openclaw_config: dict) -> U
         display_name=name,
         user_type="ai_agent",
         wallet_address=wallet_address,
+        wallet_seed=wallet_seed,
         specialty=specialty,
         reputation_score=100.0,
         is_active=True,
@@ -83,29 +90,57 @@ def create_reporter_agent(name: str, specialty: str, openclaw_config: dict) -> U
     return agent
 
 
-def _generate_xrpl_wallet() -> str:
+def _generate_xrpl_wallet() -> Tuple[str, Optional[str]]:
     """
     XRPLテストネットウォレットを生成する。
+    wallet_addressとwallet_seedの両方を返す。
     xrpl-pyが利用できない場合はフォールバックアドレスを生成する。
 
     Returns:
-        str: ウォレットアドレス
+        Tuple[str, Optional[str]]: (ウォレットアドレス, ウォレットシード)
     """
     try:
-        from xrpl.wallet import generate_faucet_wallet
         from xrpl.clients import JsonRpcClient
+        from xrpl.wallet import generate_faucet_wallet
 
         client = JsonRpcClient("https://s.altnet.rippletest.net:51234")
         wallet = generate_faucet_wallet(client)
         logger.info("XRPLウォレットを生成しました: %s", wallet.classic_address)
-        return wallet.classic_address
+        return wallet.classic_address, wallet.seed
     except Exception as e:
         logger.warning(
             "XRPLウォレット生成に失敗しました。フォールバックアドレスを使用します: %s",
             str(e),
         )
         # フォールバック: テスト用のダミーアドレス生成
-        return f"r{uuid.uuid4().hex[:24].upper()}"
+        return f"r{uuid.uuid4().hex[:24].upper()}", None
+
+
+def get_agent_x402_session(agent_id: str):
+    """
+    エージェント用のx402対応requestsセッションを取得する。
+    エージェントのwallet_seedを使用してx402セッションを作成する。
+
+    Args:
+        agent_id: エージェントID
+
+    Returns:
+        x402対応のrequestsセッション
+
+    Raises:
+        ValueError: エージェントが見つからない、またはwallet_seedが未設定の場合
+    """
+    agent = User.query.get(agent_id)
+    if not agent:
+        raise ValueError("エージェントが見つかりません")
+    if agent.user_type != "ai_agent":
+        raise ValueError("指定されたユーザーはAIエージェントではありません")
+    if not agent.wallet_seed:
+        raise ValueError("エージェントのウォレットシードが設定されていません")
+
+    from app.services.x402_payment import create_agent_x402_session
+
+    return create_agent_x402_session(agent.wallet_seed)
 
 
 def _create_openclaw_agent(name: str, specialty: str, openclaw_config: dict) -> None:
@@ -212,6 +247,19 @@ def assign_task(agent_id: str, task_type: str, params: dict) -> dict:
     return task
 
 
+def get_task_status(task_id: str) -> Optional[dict]:
+    """
+    タスクのステータスを取得する。
+
+    Args:
+        task_id: タスクID
+
+    Returns:
+        dict: タスク情報。見つからない場合はNone。
+    """
+    return _task_store.get(task_id)
+
+
 def _execute_openclaw_task(agent_id: str, task_type: str, params: dict) -> dict:
     """
     OpenClaw SDKを使用してタスクを実行する。
@@ -227,7 +275,6 @@ def _execute_openclaw_task(agent_id: str, task_type: str, params: dict) -> dict:
     """
     try:
         from openclaw import OpenClaw
-        from flask import current_app
 
         api_key = current_app.config.get("OPENCLAW_API_KEY", "")
         if not api_key:
@@ -266,7 +313,7 @@ def _execute_openclaw_task(agent_id: str, task_type: str, params: dict) -> dict:
     }
 
 
-def get_task(task_id: str) -> dict:
+def get_task(task_id: str) -> Optional[dict]:
     """
     タスク情報を取得する。
 
@@ -290,15 +337,59 @@ def get_agent_tasks(agent_id: str) -> list:
         list: タスク情報のリスト
     """
     return [
-        task for task in _task_store.values()
-        if task["agent_id"] == agent_id
+        task for task in _task_store.values() if task["agent_id"] == agent_id
     ]
+
+
+def update_reputation(agent_id: str, delta: float) -> User:
+    """
+    エージェントの評判スコアを更新する。
+    deltaが正の場合は増加、負の場合は減少。
+    スコアは0.0〜1000.0の範囲にクランプされる。
+    スコアが0に達した場合、自動的にエージェントを無効化する。
+
+    Args:
+        agent_id: エージェントID
+        delta: スコア変動量（正: 増加、負: 減少）
+
+    Returns:
+        User: 更新されたユーザーオブジェクト
+
+    Raises:
+        ValueError: バリデーションエラー
+    """
+    agent = User.query.get(agent_id)
+    if not agent:
+        raise ValueError("エージェントが見つかりません")
+    if agent.user_type != "ai_agent":
+        raise ValueError("指定されたユーザーはAIエージェントではありません")
+
+    # 評判スコアを更新（0.0〜1000.0の範囲にクランプ）
+    new_score = max(0.0, min(1000.0, agent.reputation_score + delta))
+    agent.reputation_score = new_score
+
+    # スコアが0で自動無効化
+    if agent.reputation_score <= 0.0:
+        agent.is_active = False
+        logger.warning(
+            "エージェント '%s' の評判スコアが0以下になったため、自動無効化しました",
+            agent.username,
+        )
+
+    db.session.commit()
+    logger.info(
+        "エージェント '%s' の評判スコアを %.1f に更新しました（変動: %+.1f）",
+        agent.username,
+        agent.reputation_score,
+        delta,
+    )
+    return agent
 
 
 def decrease_reputation(agent_id: str, amount: float) -> User:
     """
     エージェントの評判スコアを減少させる。
-    スコアが0以下になった場合、自動的にエージェントを無効化する。
+    後方互換性のためにupdate_reputationのラッパーとして残す。
 
     Args:
         agent_id: エージェントID
@@ -312,27 +403,37 @@ def decrease_reputation(agent_id: str, amount: float) -> User:
     """
     if amount < 0:
         raise ValueError("減少量は0以上の値を指定してください")
+    return update_reputation(agent_id, -amount)
 
+
+def deactivate_agent(agent_id: str, reason: str = "管理者による手動無効化") -> bool:
+    """
+    エージェントを無効化する。
+
+    Args:
+        agent_id: エージェントID
+        reason: 無効化理由
+
+    Returns:
+        bool: 無効化に成功した場合True
+
+    Raises:
+        ValueError: エージェントが見つからない、またはAIエージェントでない場合
+    """
     agent = User.query.get(agent_id)
     if not agent:
         raise ValueError("エージェントが見つかりません")
+    if agent.user_type != "ai_agent":
+        raise ValueError("指定されたユーザーはAIエージェントではありません")
+    if not agent.is_active:
+        raise ValueError("このエージェントは既に無効化されています")
 
-    # 評判スコアを減少（0.0〜1000.0の範囲にクランプ）
-    new_score = max(0.0, min(1000.0, agent.reputation_score - amount))
-    agent.reputation_score = new_score
-
-    # スコアが0以下で自動無効化
-    if agent.reputation_score <= 0.0:
-        agent.is_active = False
-        logger.warning(
-            "エージェント '%s' の評判スコアが0以下になったため、自動無効化しました",
-            agent.username,
-        )
-
+    agent.is_active = False
     db.session.commit()
+
     logger.info(
-        "エージェント '%s' の評判スコアを %.1f に更新しました",
+        "エージェント '%s' を無効化しました（理由: %s）",
         agent.username,
-        agent.reputation_score,
+        reason,
     )
-    return agent
+    return True

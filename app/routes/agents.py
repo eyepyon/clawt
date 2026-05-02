@@ -1,7 +1,7 @@
 """
 エージェント管理ルート
 
-記者エージェントの一覧取得、詳細確認、タスク割り当て、
+記者エージェントの一覧取得、詳細確認、作成、タスク割り当て、
 無効化等のAPIエンドポイントを定義する。
 """
 
@@ -13,8 +13,11 @@ from app import csrf, db, limiter
 from app.models import User
 from app.services.agent_manager import (
     assign_task,
-    decrease_reputation,
+    create_reporter_agent,
+    deactivate_agent,
     get_agent_tasks,
+    get_task_status,
+    update_reputation,
 )
 from app.services.jwt_auth import jwt_required
 
@@ -48,10 +51,15 @@ def list_agents():
 
     agents = query.order_by(User.created_at.desc()).all()
 
-    return jsonify({
-        "agents": [agent.to_dict() for agent in agents],
-        "total": len(agents),
-    }), 200
+    return (
+        jsonify(
+            {
+                "agents": [agent.to_dict() for agent in agents],
+                "total": len(agents),
+            }
+        ),
+        200,
+    )
 
 
 @agents_bp.route("/api/agents/<string:agent_id>", methods=["GET"])
@@ -70,12 +78,71 @@ def get_agent(agent_id):
         return jsonify({"error": "エージェントが見つかりません"}), 404
 
     if agent.user_type != "ai_agent":
-        return jsonify({"error": "指定されたユーザーはAIエージェントではありません"}), 400
+        return (
+            jsonify({"error": "指定されたユーザーはAIエージェントではありません"}),
+            400,
+        )
 
     agent_data = agent.to_dict()
     agent_data["tasks"] = get_agent_tasks(agent_id)
 
     return jsonify({"agent": agent_data}), 200
+
+
+@agents_bp.route("/api/agents", methods=["POST"])
+@jwt_required
+def create_agent():
+    """
+    エージェント作成API
+
+    POST /agents/api/agents
+
+    リクエストボディ:
+        - name: エージェント名 (必須)
+        - specialty: 専門分野 (必須)
+        - openclaw_api_key: OpenClaw APIキー (任意、未指定時はconfig値を使用)
+
+    Returns:
+        JSON: 作成されたエージェント情報
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "リクエストボディが必要です"}), 400
+
+    name = data.get("name")
+    specialty = data.get("specialty")
+
+    if not name:
+        return jsonify({"error": "エージェント名は必須です"}), 400
+    if not specialty:
+        return jsonify({"error": "専門分野は必須です"}), 400
+
+    # OpenClaw設定を構築
+    from flask import current_app
+
+    openclaw_config = {
+        "api_key": data.get(
+            "openclaw_api_key",
+            current_app.config.get("OPENCLAW_API_KEY", ""),
+        )
+    }
+
+    try:
+        agent = create_reporter_agent(name, specialty, openclaw_config)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    logger.info("エージェント '%s' を作成しました", name)
+
+    return (
+        jsonify(
+            {
+                "message": "エージェントを作成しました",
+                "agent": agent.to_dict(),
+            }
+        ),
+        201,
+    )
 
 
 @agents_bp.route("/api/agents/<string:agent_id>/tasks", methods=["POST"])
@@ -108,15 +175,38 @@ def create_task(agent_id):
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
-    return jsonify({
-        "message": "タスクを割り当てました",
-        "task": task,
-    }), 201
+    return (
+        jsonify(
+            {
+                "message": "タスクを割り当てました",
+                "task": task,
+            }
+        ),
+        201,
+    )
+
+
+@agents_bp.route("/api/agents/tasks/<string:task_id>", methods=["GET"])
+@jwt_required
+def get_task(task_id):
+    """
+    タスクステータス取得API
+
+    GET /agents/api/agents/tasks/<task_id>
+
+    Returns:
+        JSON: タスク情報
+    """
+    task = get_task_status(task_id)
+    if not task:
+        return jsonify({"error": "タスクが見つかりません"}), 404
+
+    return jsonify({"task": task}), 200
 
 
 @agents_bp.route("/api/agents/<string:agent_id>/deactivate", methods=["PUT"])
 @jwt_required
-def deactivate_agent(agent_id):
+def deactivate_agent_route(agent_id):
     """
     エージェント無効化API（管理者のみ）
 
@@ -133,30 +223,26 @@ def deactivate_agent(agent_id):
     if not current_user or not current_user.is_admin:
         return jsonify({"error": "管理者権限が必要です"}), 403
 
-    agent = User.query.get(agent_id)
-    if not agent:
-        return jsonify({"error": "エージェントが見つかりません"}), 404
-
-    if agent.user_type != "ai_agent":
-        return jsonify({"error": "指定されたユーザーはAIエージェントではありません"}), 400
-
-    if not agent.is_active:
-        return jsonify({"error": "このエージェントは既に無効化されています"}), 400
-
     data = request.get_json() or {}
     reason = data.get("reason", "管理者による手動無効化")
 
-    agent.is_active = False
-    db.session.commit()
+    try:
+        deactivate_agent(agent_id, reason)
+    except ValueError as e:
+        error_msg = str(e)
+        if "見つかりません" in error_msg:
+            return jsonify({"error": error_msg}), 404
+        return jsonify({"error": error_msg}), 400
 
-    logger.info(
-        "エージェント '%s' を無効化しました（理由: %s）",
-        agent.username,
-        reason,
+    agent = User.query.get(agent_id)
+
+    return (
+        jsonify(
+            {
+                "message": "エージェントを無効化しました",
+                "agent": agent.to_dict(),
+                "reason": reason,
+            }
+        ),
+        200,
     )
-
-    return jsonify({
-        "message": "エージェントを無効化しました",
-        "agent": agent.to_dict(),
-        "reason": reason,
-    }), 200
