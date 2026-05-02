@@ -9,23 +9,23 @@
 - [x] 1.6 プロジェクトディレクトリ構造を作成する（app/, app/models/, app/routes/, app/services/, app/templates/, app/static/, tests/）
 
 ## タスク2: データモデル実装
-- [-] 2.1 Userモデルを実装する（id, username, display_name, user_type, wallet_address, world_id_nullifier, specialty, reputation_score, total_articles, total_rewards_xrp, total_penalties_xrp, is_active, is_verified, language, created_at, updated_at）
-- [~] 2.2 Articleモデルを実装する（id, title, content, summary, slug, author_id, category, tags, source_urls, view_count, like_count, report_count, status, language, reward_distributed, created_at, published_at）
-- [~] 2.3 RewardTransactionモデルを実装する（id, user_id, article_id, tx_type, amount_xrp, xrpl_tx_hash, status, reason, created_at, confirmed_at）
-- [~] 2.4 Reportモデルを実装する（id, article_id, reporter_id, reason, description, evidence_urls, status, reviewer_id, resolution, created_at, reviewed_at）
-- [~] 2.5 各モデルのバリデーションルールを実装する（username形式、wallet_address形式、reputation_score範囲、記事ステータス遷移）
-- [~] 2.6 初期マイグレーションを作成・実行する
+- [x] 2.1 Userモデルを実装する（id, username, display_name, user_type, wallet_address, world_id_nullifier, specialty, reputation_score, total_articles, total_rewards_xrp, total_penalties_xrp, is_active, is_verified, language, created_at, updated_at）
+- [x] 2.2 Articleモデルを実装する（id, title, content, summary, slug, author_id, category, tags, source_urls, view_count, like_count, report_count, status, language, reward_distributed, created_at, published_at）
+- [x] 2.3 RewardTransactionモデルを実装する（id, user_id, article_id, tx_type, amount_xrp, xrpl_tx_hash, status, reason, created_at, confirmed_at）
+- [x] 2.4 Reportモデルを実装する（id, article_id, reporter_id, reason, description, evidence_urls, status, reviewer_id, resolution, created_at, reviewed_at）
+- [x] 2.5 各モデルのバリデーションルールを実装する（username形式、wallet_address形式、reputation_score範囲、記事ステータス遷移）
+- [x] 2.6 初期マイグレーションを作成・実行する
 
 ## タスク3: 認証・認可モジュール実装
-- [~] 3.1 World ID OIDC認証フローを実装する（認可コード交換、IDトークン検証、nullifier_hash取得、重複チェック）
-- [~] 3.2 Xaman Wallet連携を実装する（SignInペイロード作成、QRコード生成、署名検証コールバック、ウォレットアドレス取得）
-- [~] 3.3 JWT発行・検証ミドルウェアを実装する（PyJWT使用、トークン有効期限管理）
-- [~] 3.4 ユーザー登録APIを実装する（POST /api/register - human, ai_agent, external_agent対応）
-- [~] 3.5 ログインAPIを実装する（POST /api/login - World ID / APIキー対応）
-- [~] 3.6 認証レート制限を実装する（Flask-Limiter、5回/時間）
+- [x] 3.1 World ID OIDC認証フローを実装する（認可コード交換、IDトークン検証、nullifier_hash取得、重複チェック）
+- [x] 3.2 Xaman Wallet連携を実装する（SignInペイロード作成、QRコード生成、署名検証コールバック、ウォレットアドレス取得）
+- [x] 3.3 JWT発行・検証ミドルウェアを実装する（PyJWT使用、トークン有効期限管理）
+- [x] 3.4 ユーザー登録APIを実装する（POST /api/register - human, ai_agent, external_agent対応）
+- [x] 3.5 ログインAPIを実装する（POST /api/login - World ID / APIキー対応）
+- [x] 3.6 認証レート制限を実装する（Flask-Limiter、5回/時間）
 
 ## タスク4: エージェント管理モジュール実装
-- [~] 4.1 OpenClaw SDKを使用したエージェント作成機能を実装する（create_reporter_agent関数）
+- [-] 4.1 OpenClaw SDKを使用したエージェント作成機能を実装する（create_reporter_agent関数）
 - [~] 4.2 エージェント一覧取得・ステータス確認APIを実装する（GET /api/agents, GET /api/agents/<id>）
 - [~] 4.3 エージェントタスク割り当て・追跡機能を実装する（トレンド検索、記事作成、ソース検索）
 - [~] 4.4 エージェント評判スコア管理を実装する（初期値100.0、減少ロジック、自動無効化）
