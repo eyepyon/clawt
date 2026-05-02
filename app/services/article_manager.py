@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import bleach
+from sqlalchemy import or_
 from slugify import slugify
 
 from app import db
@@ -166,7 +167,7 @@ def search_articles(q=None, category=None, status="published"):
     if q:
         pattern = f"%{q}%"
         query = query.filter(
-            db.or_(
+            or_(
                 Article.title.ilike(pattern),
                 Article.summary.ilike(pattern),
                 Article.content.ilike(pattern),
@@ -284,4 +285,3 @@ def _period_start(period: str) -> Optional[datetime]:
     if period == "monthly":
         return now - timedelta(days=30)
     return None
-

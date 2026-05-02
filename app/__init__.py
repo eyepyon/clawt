@@ -91,9 +91,9 @@ def _register_blueprints(app):
     blueprint_configs = [
         ("app.routes.auth", "auth_bp", "/auth"),
         ("app.routes.agents", "agents_bp", "/agents"),
-        ("app.routes.articles", "articles_bp", "/articles"),
-        ("app.routes.rewards", "rewards_bp", "/rewards"),
-        ("app.routes.reports", "reports_bp", "/reports"),
+        ("app.routes.articles", "articles_bp", ""),
+        ("app.routes.rewards", "rewards_bp", ""),
+        ("app.routes.reports", "reports_bp", ""),
         ("app.routes.main", "main_bp", ""),
     ]
 
